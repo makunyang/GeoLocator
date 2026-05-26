@@ -30,7 +30,7 @@ def parse_wkt(wkt_str):
             return geom.geoms[0]
         return geom
     except Exception as e:
-        print(f"⚠️ WKT解析失败：{wkt_str}，错误：{str(e)}")
+        print(f"⚠️ WKT parsing failed：{str(e)}")
         return None
 
 
@@ -39,7 +39,7 @@ def calculate_ideal_points(point):
     for ref in point['references']:
         ref_geom = parse_wkt(ref['wkt'])
         if not ref_geom:
-            print(f"⚠️ 点 {point['id']} 的某个参考区域WKT无效，跳过该区域")
+            print(f"⚠️  {point['id']} The WKT of a certain reference area is invalid; skipping this area.")
             continue
 
     
@@ -86,17 +86,17 @@ def load_excel_input(file_path=''):
 
     try:
         df = pd.read_excel(file_path)
-        print(f"📥 成功读取Excel文件：{file_path}（原始行数：{len(df)}）")
+        print(f"📥 Successfully read the Excel file：{file_path}（{len(df)}）")
     except FileNotFoundError:
-        raise Exception(f"❌ Excel文件未找到，请检查路径：{file_path}")
+        raise Exception(f"❌ Excel file not found, please check the path：{file_path}")
     except Exception as e:
-        raise Exception(f"❌ 读取Excel失败：{str(e)}")
+        raise Exception(f"❌ Failed to read Excel：{str(e)}")
 
 
     required_raw_cols = list(EXCEL_COL_MAP.keys())
     missing_cols = [col for col in required_raw_cols if col not in df.columns]
     if missing_cols:
-        raise Exception(f"❌ Excel缺少必要列：{missing_cols}\n请确保包含列：{required_raw_cols}")
+        raise Exception(f"❌ Excel is missing required columns：{missing_cols}\n")
 
 
     df_clean = df.rename(columns=EXCEL_COL_MAP)  
@@ -128,9 +128,9 @@ def load_excel_input(file_path=''):
         })
 
 
-    print(f"✅ 数据清洗完成：有效行数 {len(df_clean)} → 有效点数 {len(data['points'])}")
+    print(f"✅ Data cleaning completed")
     if len(data['points']) == 0:
-        raise Exception("❌ 无有效数据，请检查Excel中的数值和格式")
+        raise Exception("❌ No valid data available; please check the values and formatting in Excel.")
     return data
 
 
@@ -154,8 +154,8 @@ def save_wkt_excel(ls_coords):
 
     df_result = pd.DataFrame(result_list)
     df_result.to_excel(result_path, index=False, engine='openpyxl')
-    print(f"\n📤 结果已保存至：{result_path}")
-    print(f"   - 共 {len(result_list)} 个点的WKT坐标")
+    print(f"\n📤 Results have been saved to：{result_path}")
+    print(f"   - WKT coordinates of {len(result_list)} points")
     return result_path
 
 
@@ -168,22 +168,22 @@ def calculate_least_squares_coords(data):
         point_id = point['id']
         ref_count = len(point['references'])
         print(f"\n" + "-" * 40)
-        print(f"处理点：{point_id}（参考区域数：{ref_count}）")
+        print(f"Processing point：{point_id}")
 
         ideal_points = calculate_ideal_points(point)
         if len(ideal_points) == 0:
-            print(f"⚠️ 点 {point_id} 无有效理想点，跳过计算")
+            print(f"⚠️ {point_id} No valid ideal point, skipping calculation")
             continue
-        print(f"   有效理想点数：{len(ideal_points)}/{ref_count}")
+        print(f"   Effective ideal points：{len(ideal_points)}/{ref_count}")
 
 
-        ls_lon = np.mean([coord[0] for coord in ideal_points])  # 经度均值
-        ls_lat = np.mean([coord[1] for coord in ideal_points])  # 纬度均值
+        ls_lon = np.mean([coord[0] for coord in ideal_points])  
+        ls_lat = np.mean([coord[1] for coord in ideal_points])  
         ls_coords[point_id] = (ls_lon, ls_lat)
 
   
-        print(f"   最小二乘坐标：({ls_lon:.6f}, {ls_lat:.6f})")
-        print(f"   WKT格式：POINT({ls_lon:.6f} {ls_lat:.6f})")
+        print(f"   Minimum two-seat coordinates：({ls_lon:.6f}, {ls_lat:.6f})")
+        print(f"   WKT format：POINT({ls_lon:.6f} {ls_lat:.6f})")
 
     return ls_coords
 
@@ -192,28 +192,28 @@ def calculate_least_squares_coords(data):
 def main():
     try:
         print("=" * 50)
-        print("  最小二乘地理坐标计算（精简版）")
-        print("  功能：Excel输入 → 理想点计算 → WKT Excel输出")
+        print("  Least Squares Geodetic Coordinate Calculation")
+
         print("=" * 50)
 
-        print("\n【步骤1/3】加载并清洗Excel数据...")
+
         data = load_excel_input()
 
-        print("\n【步骤2/3】计算各点最小二乘坐标...")
+
         ls_coords = calculate_least_squares_coords(data)
         if not ls_coords:
-            raise Exception("❌ 未计算出任何有效坐标")
+            raise Exception("❌ No valid coordinates calculated")
 
-        print("\n【步骤3/3】保存WKT坐标到Excel...")
+
         save_wkt_excel(ls_coords)
 
         print("\n" + "=" * 50)
-        print("  所有计算完成！")
+
         print("=" * 50)
         return ls_coords
 
     except Exception as e:
-        print(f"\n❌ 程序执行失败：{str(e)}")
+        print(f"\n❌ Program execution failed：{str(e)}")
         return None
 
 
