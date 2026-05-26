@@ -6,22 +6,21 @@ import os
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 
-# 全局绘图参数配置（保留原角度逻辑，优化可视化）
 plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
-plt.rcParams['axes.formatter.useoffset'] = False  # 关闭科学计数法
-plt.rcParams['axes.formatter.limits'] = (-6, 6)  # 避免经纬度用科学计数法显示
+plt.rcParams['axes.formatter.useoffset'] = False  
+plt.rcParams['axes.formatter.limits'] = (-6, 6)  
 plt.rcParams['xtick.direction'] = 'in'
 plt.rcParams['ytick.direction'] = 'in'
-plt.rcParams['figure.dpi'] = 100  # 默认分辨率，保存时用300dpi
+plt.rcParams['figure.dpi'] = 100  
 
 
-def visualize_ideal_points_and_references(point, output_dir='./process_visualization', outliers=None):
-    """可视化理想点、参考多边形及离群点，返回理想点及对应区域ID"""
+def visualize_ideal_points_and_references(point, output_dir='', outliers=None):
+ 
     os.makedirs(output_dir, exist_ok=True)
     fig, ax = plt.subplots(figsize=(10, 10))
     reference_geoms = []
-    ideal_points = []  # 存储元组：(坐标, 区域ID)
+    ideal_points = []  
     intersection_points = []
     centroid_points = []
 
@@ -32,34 +31,27 @@ def visualize_ideal_points_and_references(point, output_dir='./process_visualiza
         coords = list(ref_geom.exterior.coords)
         x_coords, y_coords = zip(*coords)
 
-        # 绘制参考区域
         ax.fill(x_coords, y_coords, alpha=0.5, edgecolor='black', linewidth=1.5, facecolor=f'C{i}',
                 label=f'参考区域 {i + 1}')
 
-        # 计算质心
         centroid = ref_geom.centroid
         centroid_points.append((centroid.x, centroid.y))
         ax.plot(centroid.x, centroid.y, 'ks', markersize=8, label=f'质心 {i + 1}' if i == 0 else "")
 
-        # 距离转换（米→经纬度差）：111000米≈1度经纬度
         distance_deg = ref['distance'] / 111000
-        # 保留原逻辑：line_bearing = ref['bearing'] + 180（不修改）
         line_bearing = ref['bearing']
         line_bearing_rad = np.radians(line_bearing)
 
-        # 计算从质心出发的线方向和端点
         line_dx = np.sin(line_bearing_rad)
         line_dy = np.cos(line_bearing_rad)
-        line_length = distance_deg * 10  # 延长线长，提升交点检测成功率
+        line_length = distance_deg * 10  
         line_end_x = centroid.x + line_length * line_dx
         line_end_y = centroid.y + line_length * line_dy
         line = LineString([(centroid.x, centroid.y), (line_end_x, line_end_y)])
         ax.plot([centroid.x, line_end_x], [centroid.y, line_end_y], 'k--', alpha=0.5)
 
-        # 边界交点检测与处理（核心修改：MultiPoint选最远交点）
         boundary_intersection = line.intersection(ref_geom.boundary)
         if boundary_intersection.is_empty:
-            # 空交点时：计算质心到边界的最近点（保留原逻辑）
             start_point = Point(centroid.x, centroid.y)
             nearest_dist = float('inf')
             nearest_x, nearest_y = centroid.x, centroid.y
@@ -73,20 +65,17 @@ def visualize_ideal_points_and_references(point, output_dir='./process_visualiza
             start_x, start_y = nearest_x, nearest_y
         else:
             if boundary_intersection.geom_type == 'MultiPoint':
-                # 核心修改：选择与质心距离最远的交点
                 centroid_point = Point(centroid.x, centroid.y)
                 max_dist = max(
                     (centroid_point.distance(p), p) for p in boundary_intersection.geoms
                 )
                 start_x, start_y = max_dist[1].x, max_dist[1].y
             else:
-                # 单个交点直接使用
                 start_x, start_y = boundary_intersection.x, boundary_intersection.y
 
         intersection_points.append((start_x, start_y))
         ax.plot(start_x, start_y, 'go', markersize=10, label=f'边界交点 {i + 1}' if i == 0 else "")
 
-        # 理想点计算（保留原逻辑：用原始bearing，不额外+180）
         original_bearing_rad = np.radians(ref['bearing'])
         dx = np.sin(original_bearing_rad)
         dy = np.cos(original_bearing_rad)
@@ -94,16 +83,13 @@ def visualize_ideal_points_and_references(point, output_dir='./process_visualiza
         y_prime = start_y + distance_deg * dy
         ideal_points.append(((x_prime, y_prime), i + 1))
 
-        # 绘制理想点及连线
         ax.plot([start_x, x_prime], [start_y, y_prime], 'r-', alpha=0.8, linewidth=2)
         ax.plot(x_prime, y_prime, 'ro', markersize=10, label=f'理想点 {i + 1}' if i == 0 else "")
 
-    # 绘制离群点（如果有）
     if outliers:
         outlier_x, outlier_y = zip(*outliers)
         ax.plot(outlier_x, outlier_y, 'mo', markersize=12, markerfacecolor='none', label='离群点')
 
-    # 调整坐标轴范围（保留原逻辑，优化margin）
     all_x = []
     all_y = []
     for geom in reference_geoms:
@@ -120,7 +106,6 @@ def visualize_ideal_points_and_references(point, output_dir='./process_visualiza
     ax.set_xlim(x_min - margin_x, x_max + margin_x)
     ax.set_ylim(y_min - margin_y, y_max + margin_y)
 
-    # 绘图基础设置
     ax.set_aspect('equal')
     ax.set_title(f'点 {point["id"]} 的理想点和参考多边形可视化', fontsize=12)
     ax.set_xlabel('经度', fontsize=10)
@@ -130,7 +115,6 @@ def visualize_ideal_points_and_references(point, output_dir='./process_visualiza
     ax.legend(by_label.values(), by_label.keys(), loc='best', fontsize=9)
     plt.tight_layout()
 
-    # 保存图片
     output_path = os.path.join(output_dir, f'{point["id"]}_ideal_points_visualization.png')
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.close()
@@ -139,7 +123,6 @@ def visualize_ideal_points_and_references(point, output_dir='./process_visualiza
 
 
 def remove_outliers(ideal_points, z_threshold=1.5):
-    """基于Z-score的离群点检测与移除"""
     if len(ideal_points) <= 2:
         return ideal_points, []
     points_array = np.array([p[0] for p in ideal_points])
@@ -154,7 +137,6 @@ def remove_outliers(ideal_points, z_threshold=1.5):
 
 
 def huber_robust_estimation(ideal_points, delta=0.001):
-    """鲁棒估计算法（保留原逻辑）"""
     if not ideal_points:
         return None, None
     ideal_x = np.array([p[0][0] for p in ideal_points])
@@ -177,7 +159,6 @@ def huber_robust_estimation(ideal_points, delta=0.001):
 
 
 def fermat_point(ideal_points):
-    """费马点法（保留原逻辑）"""
     if not ideal_points:
         return None, None
 
@@ -194,7 +175,6 @@ def fermat_point(ideal_points):
 
 
 def calculate_optimal_coordinates(data):
-    """计算最优坐标（保留原逻辑）"""
     ls_coords = {}
     huber_coords = {}
     fermat_coords = {}
@@ -214,14 +194,11 @@ def calculate_optimal_coordinates(data):
         target_coords = [p for (p, r) in target_points]
 
         if target_coords:
-            # 最小二乘法
             ls_x = np.mean([p[0] for p in target_coords])
             ls_y = np.mean([p[1] for p in target_coords])
             ls_coords[point_id] = (ls_x, ls_y)
-            # 鲁棒估计
             huber_x, huber_y = huber_robust_estimation(target_points)
             huber_coords[point_id] = (huber_x, huber_y)
-            # 费马点
             fermat_x, fermat_y = fermat_point(target_points)
             fermat_coords[point_id] = (fermat_x, fermat_y)
 
@@ -241,8 +218,7 @@ def calculate_optimal_coordinates(data):
     return ls_coords, huber_coords, fermat_coords
 
 
-def save_results(results, output_dir='./results', filename='calculation_results.json'):
-    """保存结果（保留原逻辑）"""
+def save_results(results, output_dir='', filename=''):
     os.makedirs(output_dir, exist_ok=True)
     results_serializable = {k: list(v) for k, v in results.items()}
     output_path = os.path.join(output_dir, filename)
@@ -252,14 +228,12 @@ def save_results(results, output_dir='./results', filename='calculation_results.
     return output_path
 
 
-def load_input_data(file_path='./data/data1-deepseek.json'):
-    """加载输入数据（保留原逻辑）"""
+def load_input_data(file_path=''):
     with open(file_path, 'r', encoding='utf-8') as f:
         return json.load(f)
 
 
 def main():
-    """主函数（保留原逻辑）"""
     data = load_input_data()
     ls_results, huber_results, fermat_results = calculate_optimal_coordinates(data)
     save_results(ls_results, filename='least_squares_results.json')
