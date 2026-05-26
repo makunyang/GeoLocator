@@ -32,11 +32,11 @@ def visualize_ideal_points_and_references(point, output_dir='', outliers=None):
         x_coords, y_coords = zip(*coords)
 
         ax.fill(x_coords, y_coords, alpha=0.5, edgecolor='black', linewidth=1.5, facecolor=f'C{i}',
-                label=f'参考区域 {i + 1}')
+                label=f'Reference area {i + 1}')
 
         centroid = ref_geom.centroid
         centroid_points.append((centroid.x, centroid.y))
-        ax.plot(centroid.x, centroid.y, 'ks', markersize=8, label=f'质心 {i + 1}' if i == 0 else "")
+        ax.plot(centroid.x, centroid.y, 'ks', markersize=8, label=f'centroid {i + 1}' if i == 0 else "")
 
         distance_deg = ref['distance'] / 111000
         line_bearing = ref['bearing']
@@ -74,7 +74,7 @@ def visualize_ideal_points_and_references(point, output_dir='', outliers=None):
                 start_x, start_y = boundary_intersection.x, boundary_intersection.y
 
         intersection_points.append((start_x, start_y))
-        ax.plot(start_x, start_y, 'go', markersize=10, label=f'边界交点 {i + 1}' if i == 0 else "")
+        ax.plot(start_x, start_y, 'go', markersize=10, label=f'Boundary intersection {i + 1}' if i == 0 else "")
 
         original_bearing_rad = np.radians(ref['bearing'])
         dx = np.sin(original_bearing_rad)
@@ -84,11 +84,11 @@ def visualize_ideal_points_and_references(point, output_dir='', outliers=None):
         ideal_points.append(((x_prime, y_prime), i + 1))
 
         ax.plot([start_x, x_prime], [start_y, y_prime], 'r-', alpha=0.8, linewidth=2)
-        ax.plot(x_prime, y_prime, 'ro', markersize=10, label=f'理想点 {i + 1}' if i == 0 else "")
+        ax.plot(x_prime, y_prime, 'ro', markersize=10, label=f'ideal point {i + 1}' if i == 0 else "")
 
     if outliers:
         outlier_x, outlier_y = zip(*outliers)
-        ax.plot(outlier_x, outlier_y, 'mo', markersize=12, markerfacecolor='none', label='离群点')
+        ax.plot(outlier_x, outlier_y, 'mo', markersize=12, markerfacecolor='none', label='Outlier')
 
     all_x = []
     all_y = []
@@ -107,9 +107,9 @@ def visualize_ideal_points_and_references(point, output_dir='', outliers=None):
     ax.set_ylim(y_min - margin_y, y_max + margin_y)
 
     ax.set_aspect('equal')
-    ax.set_title(f'点 {point["id"]} 的理想点和参考多边形可视化', fontsize=12)
-    ax.set_xlabel('经度', fontsize=10)
-    ax.set_ylabel('纬度', fontsize=10)
+    ax.set_title(f'Visualization of the ideal point and reference polygon for point  {point["id"]} ', fontsize=12)
+    ax.set_xlabel('longitude', fontsize=10)
+    ax.set_ylabel('latitude', fontsize=10)
     handles, labels = ax.get_legend_handles_labels()
     by_label = dict(zip(labels, handles))
     ax.legend(by_label.values(), by_label.keys(), loc='best', fontsize=9)
@@ -118,7 +118,7 @@ def visualize_ideal_points_and_references(point, output_dir='', outliers=None):
     output_path = os.path.join(output_dir, f'{point["id"]}_ideal_points_visualization.png')
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.close()
-    print(f"可视化结果已保存至: {output_path}")
+    print(f"The visualization results have been saved to: {output_path}")
     return ideal_points
 
 
@@ -180,13 +180,12 @@ def calculate_optimal_coordinates(data):
     fermat_coords = {}
     for point in data['points']:
         point_id = point['id']
-        print(f"\n处理点: {point_id}")
+        print(f"\n: {point_id}")
         ideal_points_with_regions = visualize_ideal_points_and_references(point)
         filtered_points, outliers = remove_outliers(ideal_points_with_regions)
 
         if outliers:
             outlier_regions = [r for (p, r) in outliers]
-            print(f"点 {point_id} 检测到 {len(outliers)} 个离群点，来自区域: {outlier_regions}")
             outlier_coords = [p for (p, r) in outliers]
             visualize_ideal_points_and_references(point, outliers=outlier_coords)
 
@@ -202,9 +201,9 @@ def calculate_optimal_coordinates(data):
             fermat_x, fermat_y = fermat_point(target_points)
             fermat_coords[point_id] = (fermat_x, fermat_y)
 
-            print(f"最小二乘坐标: ({ls_x:.6f}, {ls_y:.6f})")
-            print(f"鲁棒估计坐标: ({huber_x:.6f}, {huber_y:.6f})")
-            print(f"费马点坐标: ({fermat_x:.6f}, {fermat_y:.6f})")
+            print(f"Minimum two-seat coordinates: ({ls_x:.6f}, {ls_y:.6f})")
+            print(f"Robust estimation of coordinates: ({huber_x:.6f}, {huber_y:.6f})")
+            print(f"Fermat point coordinates: ({fermat_x:.6f}, {fermat_y:.6f})")
         else:
             first_ref = point['references'][0] if point['references'] else None
             if first_ref:
@@ -214,7 +213,7 @@ def calculate_optimal_coordinates(data):
                 ls_coords[point_id] = (centroid_x, centroid_y)
                 huber_coords[point_id] = (centroid_x, centroid_y)
                 fermat_coords[point_id] = (centroid_x, centroid_y)
-                print(f"无有效理想点，使用参考质心: ({centroid_x:.6f}, {centroid_y:.6f})")
+                print(f"No valid ideal point; using reference centroid: ({centroid_x:.6f}, {centroid_y:.6f})")
     return ls_coords, huber_coords, fermat_coords
 
 
@@ -224,7 +223,7 @@ def save_results(results, output_dir='', filename=''):
     output_path = os.path.join(output_dir, filename)
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(results_serializable, f, ensure_ascii=False, indent=2)
-    print(f"\n计算结果已保存至: {output_path}")
+    print(f"\nThe calculation results have been saved to: {output_path}")
     return output_path
 
 
@@ -239,7 +238,7 @@ def main():
     save_results(ls_results, filename='least_squares_results.json')
     save_results(huber_results, filename='huber_robust_results.json')
     save_results(fermat_results, filename='fermat_point_results.json')
-    print("\n所有处理完成！")
+    print("\nAll processing completed！")
     return ls_results, huber_results, fermat_results
 
 
