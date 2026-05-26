@@ -11,22 +11,16 @@ import math
 
 warnings.filterwarnings('ignore')
 
-# 设置中文字体
+
 plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans']
 plt.rcParams['axes.unicode_minus'] = False
 
 
 class FuzzyGeoLocator:
-    """
-    基于模糊集合理论的地理定位系统（改进版：距离从边界起算 + 高斯/指数/线性 三模型对比）
-    """
+
 
     def __init__(self, fuzziness_levels=None, grid_resolution=100, output_dir='results', primary_model='gaussian'):
-        """
-        初始化模糊定位器
-        :param primary_model: 主结果模型选择，可选 'linear' / 'gaussian' / 'exponential'
-        """
-        # 默认模糊度等级参数
+
         if fuzziness_levels is None:
             self.fuzziness_levels = {
                 'high': {'delta_theta': 60.0, 'delta_distance': 1.0},
@@ -39,9 +33,9 @@ class FuzzyGeoLocator:
         self.grid_resolution = grid_resolution
         self.results = {}
         self.data = None
-        self.primary_model = primary_model  # 主结果模型选择
+        self.primary_model = primary_model 
 
-        # 输出目录
+ 
         self.output_dir = output_dir
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
@@ -53,37 +47,34 @@ class FuzzyGeoLocator:
         if not os.path.exists(self.data_dir):
             os.makedirs(self.data_dir)
 
-        # 经纬度转米系数（北京）
+ 
         self.longitude_to_meters = 85000
         self.latitude_to_meters = 111000
 
-    # ========================== 三种隶属度函数 ==========================
+
     def _linear_membership(self, diff, delta):
-        """原分段线性隶属度（论文公式2/5）"""
+
         if diff <= delta:
             return 1.0 - (diff / delta)
         return 0.0
 
     def _gaussian_membership(self, diff, delta):
-        """高斯非线性衰减（符合人类认知）"""
+
         if delta == 0:
             return 1.0 if diff == 0 else 0.0
         return math.exp(- (diff ** 2) / (2 * delta ** 2))
 
     def _exponential_membership(self, diff, delta):
-        """指数非线性衰减"""
+
         if delta == 0:
             return 1.0 if diff == 0 else 0.0
         return math.exp(- diff / delta)
 
-    # ========================== 核心：统一计算三种隶属度 ==========================
+    
     def calculate_fuzzy_membership(self, point_lon, point_lat, boundary_lon, boundary_lat,
                                    bearing_deg, distance_meters, avg_latitude,
                                    delta_theta, delta_distance, model_type='linear'):
-        """
-        统一计算三种模型
-        model_type: linear / gaussian / exponential
-        """
+    
         dx = point_lon - boundary_lon
         dy = point_lat - boundary_lat
 
@@ -98,7 +89,7 @@ class FuzzyGeoLocator:
 
         angle_diff = min(abs(actual_angle - bearing_deg), 360 - abs(actual_angle - bearing_deg))
 
-        # 方向隶属度
+     
         if model_type == 'gaussian':
             ma = self._gaussian_membership(angle_diff, delta_theta)
         elif model_type == 'exponential':
@@ -106,7 +97,7 @@ class FuzzyGeoLocator:
         else:
             ma = self._linear_membership(angle_diff, delta_theta)
 
-        # 距离隶属度
+  
         md = 0.0
         if distance_meters > 0 and actual_distance >= 0:
             rel_diff = abs(actual_distance - distance_meters) / distance_meters
@@ -119,7 +110,6 @@ class FuzzyGeoLocator:
 
         return max(ma * md, 0.0)
 
-    # ========================== 为三种模型分别计算模糊分布 ==========================
     def calculate_fuzzy_distribution_for_point(self, reference_data, fuzziness_level,
                                                x_grid, y_grid, X, Y, boundary_point, avg_latitude, model_type='linear'):
         delta_theta = self.fuzziness_levels[fuzziness_level]['delta_theta']
@@ -138,7 +128,6 @@ class FuzzyGeoLocator:
                 )
         return fuzzy_dist
 
-    # ========================== 数据加载与几何计算 ==========================
 
     def load_excel_data(self, filepath):
         try:
@@ -277,7 +266,6 @@ class FuzzyGeoLocator:
         elif d<50: return 'medium'
         else: return 'high'
 
-    # ========================== 核心：同时计算三种模型 ==========================
     def process_location_point(self, point_data, point_index=None, save_images=True):
         loc_id = point_data.get('id', f'Point_{point_index}')
         refs = point_data.get('references', [])
@@ -304,7 +292,6 @@ class FuzzyGeoLocator:
         xg, yg, X, Y, avg_lat = self.create_search_grid(bps, max_d*3)
         if xg is None: return None
 
-        # 三种模型
         models = ['linear', 'gaussian', 'exponential']
         model_results = {}
 
@@ -328,7 +315,6 @@ class FuzzyGeoLocator:
                 'coord': coord, 'conf': conf, 'region': region, 'fused': fused
             }
 
-        # 根据 primary_model 选择主结果，同时保留所有模型结果
         final = model_results[self.primary_model]
         result = {
             'location_id': loc_id,
@@ -351,7 +337,6 @@ class FuzzyGeoLocator:
             self.visualize_3d_results(result, point_index)
         return result
 
-    # ========================== 可视化 ==========================
     def visualize_results(self, result, point_index=None):
         if result is None: return
         fig, axes = plt.subplots(2,2,figsize=(14,12))
@@ -429,7 +414,6 @@ class FuzzyGeoLocator:
             txt+=f"""
         平均边界距离: {np.mean(result['boundary_distances']):.2f}m
         """
-        # 三种模型结果完整展示
         mr = result.get('model_results', {})
         txt += f"""
         --- 三模型对比 ---
@@ -499,7 +483,6 @@ class FuzzyGeoLocator:
             self.save_results(ress)
         return ress
 
-    # ========================== 保存结果 ==========================
     def save_results(self, results):
         jp=os.path.join(self.data_dir,'results.json')
         cp=os.path.join(self.data_dir,'results.csv')
@@ -554,38 +537,32 @@ class FuzzyGeoLocator:
         pd.DataFrame(detailed).to_excel(xp,index=False)
         pd.DataFrame(comp_rows).to_csv(cmp,index=False,encoding='utf-8-sig')
 
-    # ========================== 【修复完成】三模型总结报告（新增完整汇总指标） ==========================
     def generate_summary_report(self, results):
         if not results:
             print("无有效结果，无法生成报告")
             return
 
-        # ===================== 1. 核心汇总指标计算 =====================
-        total_points = len(results)  # 处理点位总数
-        ref_counts = [r['distribution_count'] for r in results]  # 每个点位的参照物数量
-        avg_ref_count = round(np.mean(ref_counts), 1)  # 平均参照物数量
+        total_points = len(results) 
+        ref_counts = [r['distribution_count'] for r in results]  
+        avg_ref_count = round(np.mean(ref_counts), 1)  
 
-        # 主模型汇总指标
         primary_confs = [r['confidence'] for r in results]
-        avg_primary_conf = round(np.mean(primary_confs), 3)  # 平均置信度
-        conf_min = round(np.min(primary_confs), 3)  # 置信度最小值
-        conf_max = round(np.max(primary_confs), 3)  # 置信度最大值
-        # 置信区域面积（兼容空值）
+        avg_primary_conf = round(np.mean(primary_confs), 3)  
+        conf_min = round(np.min(primary_confs), 3)  
+        conf_max = round(np.max(primary_confs), 3) 
         area_list = []
         for r in results:
             cr = r['confidence_region']
             area = cr['area_m2'] if (cr and cr.get('area_m2') is not None) else 0
             area_list.append(area)
-        avg_area = round(np.mean(area_list), 1)  # 平均置信区域面积
-        # 平均质心到边界距离（兼容空值）
+        avg_area = round(np.mean(area_list), 1)  
         bd_list = []
         for r in results:
             bds = r['boundary_distances']
             avg_bd = np.mean(bds) if bds else 0
             bd_list.append(avg_bd)
-        avg_bd = round(np.mean(bd_list), 2)  # 平均质心到边界距离
+        avg_bd = round(np.mean(bd_list), 2)  
 
-        # ===================== 2. 分模型整体性能汇总 =====================
         models = ['linear', 'gaussian', 'exponential']
         model_summary = {}
         for m in models:
@@ -603,7 +580,6 @@ class FuzzyGeoLocator:
                 'conf_range': f"{round(np.min(m_confs), 3)} - {round(np.max(m_confs), 3)}"
             }
 
-        # ===================== 3. 控制台打印输出 =====================
         print("\n" + "="*80)
         print(" 模糊地理定位系统 - 三模型对比总结报告")
         print("="*80)
@@ -627,7 +603,6 @@ class FuzzyGeoLocator:
                 d = r['model_results'][m]
                 print(f"{r['location_id']:<8s} {m:<10s} {d['coord'][0]:.6f} {d['coord'][1]:.6f} {d['conf']:.3f}")
 
-        # ===================== 4. 写入报告文件 =====================
         rp=os.path.join(self.output_dir,'summary_report.txt')
         with open(rp,'w',encoding='utf-8')as f:
             f.write("模糊地理定位系统 - 三模型对比总结报告\n")
@@ -656,12 +631,12 @@ class FuzzyGeoLocator:
         print(f"✅ 模型对比表已保存至: {os.path.join(self.data_dir,'model_comparison.csv')}")
 
 
-# ========================== 主函数 ==========================
+# ====================================================
 def main():
-    # ===================== 路径与模型配置 =====================
-    output_dir = r'D:\TTT\大模型位置推理实验\beijingtest2\MCP-Loc-test2\data-pre\1\gaosi+zhishu4'
-    excel_file = r'D:\TTT\大模型位置推理实验\beijingtest2\MCP-Loc-test2\data-pre\1\DeepseekAPI-miaoshu1.xlsx'
-    primary_model = 'gaussian'  # 主模型可选: 'linear' / 'gaussian' / 'exponential'
+    # ==========================================
+    output_dir = r''
+    excel_file = r''
+    primary_model = 'gaussian'  # 'linear' / 'gaussian' / 'exponential'
     # ========================================================
 
     locator = FuzzyGeoLocator(grid_resolution=80, output_dir=output_dir, primary_model=primary_model)
