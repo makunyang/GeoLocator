@@ -11,21 +11,17 @@ import math
 
 warnings.filterwarnings('ignore')
 
-# 设置中文字体
+
 plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans']
 plt.rcParams['axes.unicode_minus'] = False
 
 
 class FuzzyGeoLocator:
-    """
-    基于模糊集合理论的地理定位系统（改进版：距离从边界起算 + 高斯/指数/线性 三模型对比）
-    """
+   
 
     def __init__(self, fuzziness_levels=None, grid_resolution=100, output_dir='results'):
-        """
-        初始化模糊定位器
-        """
-        # 默认模糊度等级参数
+    
+  
         if fuzziness_levels is None:
             self.fuzziness_levels = {
                 'high': {'delta_theta': 60.0, 'delta_distance': 1.0},
@@ -39,7 +35,7 @@ class FuzzyGeoLocator:
         self.results = {}
         self.data = None
 
-        # 输出目录
+   
         self.output_dir = output_dir
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
@@ -51,37 +47,32 @@ class FuzzyGeoLocator:
         if not os.path.exists(self.data_dir):
             os.makedirs(self.data_dir)
 
-        # 经纬度转米系数（北京）
+
         self.longitude_to_meters = 85000
         self.latitude_to_meters = 111000
 
-    # ========================== 新增：三种隶属度函数 ==========================
     def _linear_membership(self, diff, delta):
-        """原分段线性隶属度（论文公式2/5）"""
+  
         if diff <= delta:
             return 1.0 - (diff / delta)
         return 0.0
 
     def _gaussian_membership(self, diff, delta):
-        """高斯非线性衰减（符合人类认知）"""
+  
         if delta == 0:
             return 1.0 if diff == 0 else 0.0
         return math.exp(- (diff ** 2) / (2 * delta ** 2))
 
     def _exponential_membership(self, diff, delta):
-        """指数非线性衰减"""
+
         if delta == 0:
             return 1.0 if diff == 0 else 0.0
         return math.exp(- diff / delta)
 
-    # ========================== 核心：统一计算三种隶属度 ==========================
     def calculate_fuzzy_membership(self, point_lon, point_lat, boundary_lon, boundary_lat,
                                    bearing_deg, distance_meters, avg_latitude,
                                    delta_theta, delta_distance, model_type='linear'):
-        """
-        统一计算三种模型
-        model_type: linear / gaussian / exponential
-        """
+    
         dx = point_lon - boundary_lon
         dy = point_lat - boundary_lat
 
@@ -96,7 +87,7 @@ class FuzzyGeoLocator:
 
         angle_diff = min(abs(actual_angle - bearing_deg), 360 - abs(actual_angle - bearing_deg))
 
-        # 方向隶属度
+    
         if model_type == 'gaussian':
             ma = self._gaussian_membership(angle_diff, delta_theta)
         elif model_type == 'exponential':
@@ -104,7 +95,7 @@ class FuzzyGeoLocator:
         else:
             ma = self._linear_membership(angle_diff, delta_theta)
 
-        # 距离隶属度
+      
         md = 0.0
         if distance_meters > 0 and actual_distance >= 0:
             rel_diff = abs(actual_distance - distance_meters) / distance_meters
@@ -117,7 +108,7 @@ class FuzzyGeoLocator:
 
         return max(ma * md, 0.0)
 
-    # ========================== 为三种模型分别计算模糊分布 ==========================
+
     def calculate_fuzzy_distribution_for_point(self, reference_data, fuzziness_level,
                                                x_grid, y_grid, X, Y, boundary_point, avg_latitude, model_type='linear'):
         delta_theta = self.fuzziness_levels[fuzziness_level]['delta_theta']
@@ -136,7 +127,7 @@ class FuzzyGeoLocator:
                 )
         return fuzzy_dist
 
-    # ========================== 以下所有原有逻辑完全保持不变 ==========================
+
 
     def load_excel_data(self, filepath):
         try:
@@ -276,7 +267,7 @@ class FuzzyGeoLocator:
         elif d<50: return 'medium'
         else: return 'high'
 
-    # ========================== 新增：同时计算三种模型 ==========================
+
     def process_location_point(self, point_data, point_index=None, save_images=True):
         loc_id = point_data.get('id', f'Point_{point_index}')
         refs = point_data.get('references', [])
@@ -303,7 +294,7 @@ class FuzzyGeoLocator:
         xg, yg, X, Y, avg_lat = self.create_search_grid(bps, max_d*3)
         if xg is None: return None
 
-        # 三种模型
+  
         models = ['linear', 'gaussian', 'exponential']
         model_results = {}
 
@@ -327,7 +318,7 @@ class FuzzyGeoLocator:
                 'coord': coord, 'conf': conf, 'region': region, 'fused': fused
             }
 
-        # 主结果仍用linear，保持兼容
+
         final = model_results['linear']
         result = {
             'location_id': loc_id,
@@ -341,7 +332,7 @@ class FuzzyGeoLocator:
             'grid_info': (xg, yg, X, Y, avg_lat),
             'distribution_count': len(refs),
             'references_info': ref_infos,
-            # 新增三种模型结果
+
             'model_results': model_results
         }
         self.results[loc_id] = result
@@ -350,7 +341,7 @@ class FuzzyGeoLocator:
             self.visualize_3d_results(result, point_index)
         return result
 
-    # ========================== 可视化（保持不变） ==========================
+
     def visualize_results(self, result, point_index=None):
         if result is None: return
         fig, axes = plt.subplots(2,2,figsize=(14,12))
@@ -496,7 +487,6 @@ class FuzzyGeoLocator:
             self.save_results(ress)
         return ress
 
-    # ========================== 保存结果（新增三模型对比） ==========================
     def save_results(self, results):
         jp=os.path.join(self.data_dir,'results.json')
         cp=os.path.join(self.data_dir,'results.csv')
@@ -549,7 +539,7 @@ class FuzzyGeoLocator:
         pd.DataFrame(detailed).to_excel(xp,index=False)
         pd.DataFrame(comp_rows).to_csv(cmp,index=False,encoding='utf-8-sig')
 
-    # ========================== 新增：三模型总结报告 ==========================
+
     def generate_summary_report(self, results):
         if not results: return
         print("\n"+"="*60)
@@ -579,9 +569,9 @@ class FuzzyGeoLocator:
 
 # ========================== 主函数 ==========================
 def main():
-    output_dir = r'D:\TTT\大模型位置推理实验\beijingtest2\MCP-Loc-test2\data-pre\1\GPT5.2-mohuji1'
+    output_dir = r''
     locator = FuzzyGeoLocator(grid_resolution=80, output_dir=output_dir)
-    excel = r'D:\TTT\大模型位置推理实验\beijingtest2\MCP-Loc-test2\data-pre\1\DeepseekAPI-miaoshu3.xlsx'
+    excel = r''
     data = locator.load_excel_data(excel)
     if not data: return []
     results = locator.process_all_points(data)
