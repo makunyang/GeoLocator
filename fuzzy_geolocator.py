@@ -147,10 +147,10 @@ class FuzzyGeoLocator:
                     references.append(reference)
                 points.append({'id': f"Point{int(point_id)}", 'references': references})
             self.data = {'points': points}
-            print(f"处理后得到 {len(points)} 个定位点")
+            print(f"After processing,  {len(points)} positioning points were obtained")
             return self.data
         except Exception as e:
-            print(f"加载Excel数据失败: {e}")
+            print(f"Failed to load Excel data: {e}")
             return None
 
     def calculate_boundary_reference_point(self, geom, centroid, bearing):
@@ -165,7 +165,7 @@ class FuzzyGeoLocator:
             intersection = geom.boundary.intersection(ray_line)
 
             if intersection.is_empty:
-                print(f"警告: 未找到边界交点，使用质心")
+                print(f"Warning: Boundary intersection not found, using centroid")
                 return centroid, 0.0
 
             if intersection.geom_type == 'Point':
@@ -287,7 +287,7 @@ class FuzzyGeoLocator:
                 ref_infos.append({'bearing':r['bearing'],'distance':r['distance'],'centroid':c,'boundary_point':bp,'boundary_distance':bd})
 
         if not bps:
-            print(f"无有效边界点")
+            print(f"No valid boundary points")
             return None
 
         max_d = max([r['distance'] for r in refs]) if refs else 100
@@ -347,41 +347,41 @@ class FuzzyGeoLocator:
         fig, axes = plt.subplots(2,2,figsize=(14,12))
         tid = result['location_id']
         if point_index is not None: tid += f' (点{point_index+1})'
-        fig.suptitle(f'模糊地理定位结果 - {tid}', fontsize=16, fontweight='bold')
+        fig.suptitle(f'Fuzzy geolocation results- {tid}', fontsize=16, fontweight='bold')
         xg, yg, X, Y, _ = result['grid_info']
 
         ax = axes[0,0]
         if result['fused_distribution'] is not None:
             ax.contourf(X,Y,result['fused_distribution'],20,cmap='YlOrRd',alpha=0.8)
             fx,fy = result['final_coordinate']
-            ax.plot(fx,fy,'g*',markersize=15,label='最终位置',markeredgecolor='black')
+            ax.plot(fx,fy,'g*',markersize=15,label='final position',markeredgecolor='black')
             for i,c in enumerate(result['centroids']):
-                ax.plot(c[0],c[1],'ro',markersize=6,alpha=0.7,label='质心'if i==0 else "")
+                ax.plot(c[0],c[1],'ro',markersize=6,alpha=0.7,label='centroid'if i==0 else "")
                 if i<len(result['boundary_points']):
                     bp = result['boundary_points'][i]
-                    ax.plot(bp[0],bp[1],'bs',markersize=8,alpha=0.7,label='边界点'if i==0 else "")
+                    ax.plot(bp[0],bp[1],'bs',markersize=8,alpha=0.7,label='boundary point'if i==0 else "")
                     ax.plot([c[0],bp[0]],[c[1],bp[1]],'k--',lw=1,alpha=0.5)
                     ax.text(c[0],c[1],f'C{i+1}',fontsize=8)
                     ax.text(bp[0],bp[1],f'B{i+1}',fontsize=8)
-        ax.set_title('融合后模糊分布');ax.set_xlabel('经度');ax.set_ylabel('纬度');ax.grid(alpha=0.3);ax.legend()
+        ax.set_title('Blurred distribution after fusion');ax.set_xlabel('longitude');ax.set_ylabel('latitude');ax.grid(alpha=0.3);ax.legend()
 
         ax=axes[0,1]
         if result['fused_distribution'] is not None:
             ax.imshow(result['fused_distribution'],extent=[xg.min(),xg.max(),yg.min(),yg.max()],origin='lower',cmap='hot',alpha=0.7)
             fx,fy=result['final_coordinate']
-            ax.plot(fx,fy,'g*',markersize=15,label='最终位置',markeredgecolor='black')
+            ax.plot(fx,fy,'g*',markersize=15,label='final position',markeredgecolor='black')
             cr=result['confidence_region']
             if cr:
-                r=plt.Rectangle((cr['x_min'],cr['y_min']),cr['x_max']-cr['x_min'],cr['y_max']-cr['y_min'],fill=False,ec='blue',lw=2,ls='--',label='50%置信区域')
+                r=plt.Rectangle((cr['x_min'],cr['y_min']),cr['x_max']-cr['x_min'],cr['y_max']-cr['y_min'],fill=False,ec='blue',lw=2,ls='--',label='50%')
                 ax.add_patch(r)
-        ax.set_title('去模糊化结果');ax.set_xlabel('经度');ax.set_ylabel('纬度');ax.grid(alpha=0.3);ax.legend()
+        ax.set_title('Deblurring result');ax.set_xlabel('longitude');ax.set_ylabel('latitude');ax.grid(alpha=0.3);ax.legend()
 
         ax=axes[1,0]
         for i,info in enumerate(result['references_info']):
             bp=info['boundary_point']
             c=info['centroid']
             if bp and c:
-                ax.plot(bp[0],bp[1],'bs',markersize=10,mfc='white',mec='blue',mew=2,label='边界点'if i==0 else "")
+                ax.plot(bp[0],bp[1],'bs',markersize=10,mfc='white',mec='blue',mew=2,label='boundary point'if i==0 else "")
                 ax.plot(c[0],c[1],'ro',markersize=8,alpha=0.7,label='质心'if i==0 else "")
                 ax.text(bp[0],bp[1],f'B{i+1}',fontsize=10,ha='center',va='bottom',bbox=dict(boxstyle='round,pad=0.3',fc='lightblue',alpha=0.7))
         if result['boundary_points']:
@@ -398,32 +398,32 @@ class FuzzyGeoLocator:
             dd=d/(self.longitude_to_meters*math.cos(math.radians(avg_lat)))
             dx,dy=dd*math.sin(rad),dd*math.cos(rad)
             ax.arrow(bp[0],bp[1],dx,dy,head_width=dd*0.1,head_length=dd*0.15,fc='red',ec='darkred',alpha=0.8,lw=1,length_includes_head=True)
-        ax.set_title('边界点与方向');ax.set_xlabel('经度');ax.set_ylabel('纬度');ax.grid(alpha=0.3);ax.set_aspect('equal',adjustable='box');ax.legend()
+        ax.set_title('Boundary Points and Directions');ax.set_xlabel('longitude');ax.set_ylabel('latitude');ax.grid(alpha=0.3);ax.set_aspect('equal',adjustable='box');ax.legend()
 
         ax=axes[1,1];ax.axis('off')
         fx,fy=result['final_coordinate']
         cr=result['confidence_region']
         txt=f"""
-        定位统计信息:
-        位置ID: {result['location_id']}
-        参照物数量: {result['distribution_count']}
-        最终坐标: ({fx:.6f},{fy:.6f})
-        置信度: {result['confidence']:.3f}
+        Location statistics information:
+        Position ID: {result['location_id']}
+        Number of reference objects: {result['distribution_count']}
+        Final coordinates: ({fx:.6f},{fy:.6f})
+        degree of membership: {result['confidence']:.3f}
         """
         if cr:
             txt+=f"""
-        置信区域: {cr['area_m2']:.1f}㎡
+        confidence region: {cr['area_m2']:.1f}㎡
         """
         if result['boundary_distances']:
             txt+=f"""
-        平均边界距离: {np.mean(result['boundary_distances']):.2f}m
+        Average boundary distance: {np.mean(result['boundary_distances']):.2f}m
         """
-        # 新增三种模型结果展示
+
         mr = result.get('model_results', {})
         txt += f"""
-        线性结果:    ({mr['linear']['coord'][0]:.6f},{mr['linear']['coord'][1]:.6f}) 置信度:{mr['linear']['conf']:.3f}
-        高斯结果:    ({mr['gaussian']['coord'][0]:.6f},{mr['gaussian']['coord'][1]:.6f}) 置信度:{mr['gaussian']['conf']:.3f}
-        指数结果:    ({mr['exponential']['coord'][0]:.6f},{mr['exponential']['coord'][1]:.6f}) 置信度:{mr['exponential']['conf']:.3f}
+        Linear results:    ({mr['linear']['coord'][0]:.6f},{mr['linear']['coord'][1]:.6f}) degree of membership:{mr['linear']['conf']:.3f}
+        Gaussian results:    ({mr['gaussian']['coord'][0]:.6f},{mr['gaussian']['coord'][1]:.6f}) degree of membership:{mr['gaussian']['conf']:.3f}
+        Index results:    ({mr['exponential']['coord'][0]:.6f},{mr['exponential']['coord'][1]:.6f}) degree of membership:{mr['exponential']['conf']:.3f}
         """
         ax.text(0.05,0.95,txt,fontsize=8,va='top',bbox=dict(boxstyle='round',fc='wheat',alpha=0.8))
         plt.tight_layout()
@@ -440,13 +440,13 @@ class FuzzyGeoLocator:
 
         ax1=fig.add_subplot(221,projection='3d')
         if maxz>0: ax1.plot_surface(X,Y,Z,cmap='viridis',alpha=0.8,rstride=2,cstride=2,ec='none')
-        ax1.set_title('3D分布曲面')
-        ax1.set_xlabel('经度');ax1.set_ylabel('纬度');ax1.set_zlabel('隶属度')
+        ax1.set_title('3D distribution surface')
+        ax1.set_xlabel('longitude');ax1.set_ylabel('latitude');ax1.set_zlabel('degree of membership')
         ax1.view_init(30,45)
 
         ax2=fig.add_subplot(222,projection='3d')
         if maxz>0: ax2.contour(X,Y,Z,np.linspace(0,maxz,10),cmap='hot',lw=2)
-        ax2.set_title('等高线')
+        ax2.set_title('contour line')
         ax2.view_init(90,45)
 
         ax3=fig.add_subplot(223,projection='3d')
@@ -455,8 +455,8 @@ class FuzzyGeoLocator:
         xi=np.argmin(np.abs(xg-fx))
         yi=np.argmin(np.abs(yg-fy))
         zv=Z[yi,xi] if (0<=xi<len(xg)and 0<=yi<len(yg)) else 0
-        ax3.scatter([fx],[fy],[zv],c='green',s=200,marker='*',label='最终位置')
-        ax3.set_title('线框图');ax3.legend();ax3.view_init(20,60)
+        ax3.scatter([fx],[fy],[zv],c='green',s=200,marker='*',label='final position')
+        ax3.set_title('line drawing');ax3.legend();ax3.view_init(20,60)
 
         ax4=fig.add_subplot(224,projection='3d')
         if maxz>0:
@@ -465,9 +465,9 @@ class FuzzyGeoLocator:
             for i in xs:
                 for j in ys:
                     ax4.bar3d(X[j,i],Y[j,i],0,(xg[1]-xg[0])/3,(yg[1]-yg[0])/3,Z[j,i],alpha=0.7,color=plt.cm.viridis(Z[j,i]/maxz))
-        ax4.set_title('柱状图');ax4.view_init(25,45)
+        ax4.set_title('histogram');ax4.view_init(25,45)
 
-        plt.suptitle(f'3D结果 - {result["location_id"]}',fontsize=16)
+        plt.suptitle(f'3D result - {result["location_id"]}',fontsize=16)
         plt.tight_layout()
         fp=os.path.join(self.img_dir,f"{result['location_id']}_3d.png")
         plt.savefig(fp,dpi=150,bbox_inches='tight')
@@ -476,7 +476,7 @@ class FuzzyGeoLocator:
     def process_all_points(self, data=None, save_results=True):
         if data is None:
             if self.data is None:
-                print("无数据")
+                print("no data")
                 return []
             data = self.data
         ress=[]
@@ -543,10 +543,10 @@ class FuzzyGeoLocator:
     def generate_summary_report(self, results):
         if not results: return
         print("\n"+"="*60)
-        print(" 三模型定位对比报告（线性/高斯/指数）")
+        print(" Three-Model Positioning Comparison Report (Linear/Gaussian/Exponential)")
         print("="*60)
 
-        print(f"\n点位 | 模型 | 经度 | 纬度 | 置信度")
+        print(f"\nLocation | Model | Longitude | Latitude | Confidence")
         print("-"*80)
         for r in results:
             for m in ['linear','gaussian','exponential']:
@@ -555,7 +555,7 @@ class FuzzyGeoLocator:
 
         rp=os.path.join(self.output_dir,'summary_report.txt')
         with open(rp,'w',encoding='utf-8')as f:
-            f.write("三模型对比报告\n")
+            f.write("Three-Model Comparison Report\n")
             f.write("="*60+"\n")
             for r in results:
                 f.write(f"\n{r['location_id']}\n")
@@ -563,11 +563,11 @@ class FuzzyGeoLocator:
                     d=r['model_results'][m]
                     f.write(f"  {m:10s} {d['coord'][0]:.6f},{d['coord'][1]:.6f} conf={d['conf']:.3f}\n")
 
-        print(f"\n报告已保存: {rp}")
-        print(f"模型对比表: {os.path.join(self.data_dir,'model_comparison.csv')}")
+        print(f"\nReport saved: {rp}")
+        print(f"Model Comparison Table: {os.path.join(self.data_dir,'model_comparison.csv')}")
 
 
-# ========================== 主函数 ==========================
+# =================================================
 def main():
     output_dir = r''
     locator = FuzzyGeoLocator(grid_resolution=80, output_dir=output_dir)
